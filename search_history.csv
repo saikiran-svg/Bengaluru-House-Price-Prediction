@@ -1,0 +1,8 @@
+id,location,total_sqft,bhk,bath,asking_price,predicted_price,investment_rating,searched_at
+7,chika tirupathi ,1000.0,2,2,50.0,47.7337,🟡 Fair Value,2026-08-18 12:12:56
+6,chika tirupathi ,1000.0,2,2,50.0,47.7337,🟡 Fair Value,2026-08-18 11:58:24
+5,chika tirupathi ,1500.0,4,4,70.0,141.11,🟢 Undervalued,2026-08-17 14:37:03
+4,white field,1000.0,2,2,50.0,47.7337,🟡 Fair Value,2026-08-17 14:23:14
+3,white field ,800.0,1,1,50.0,37.1717,🔴 Overpriced,2026-08-17 14:16:53
+2,white field ,800.0,1,1,50.0,37.1717,🔴 Overpriced,2026-08-17 14:16:31
+1,white field ,1000.0,2,2,50.0,47.7337,🟡 Fair Value,2026-08-17 14:10:44
