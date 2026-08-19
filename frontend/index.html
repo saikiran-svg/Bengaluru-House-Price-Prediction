@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>
+    Bengaluru Real Estate AI
+  </title>
+
+</head>
+
+
+<body>
+
+
+  <header class="hero">
+
+    <div class="hero-content">
+
+      <div class="hero-icon">
+        🏢
+      </div>
+
+      <div>
+
+        <h1>
+          Bengaluru Real Estate AI
+        </h1>
+
+        <p>
+          Intelligent property valuation
+          powered by Machine Learning
+        </p>
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <main class="container">
+
+
+    <!-- ================================================= -->
+    <!-- METRICS -->
+    <!-- ================================================= -->
+
+    <section class="metrics">
+
+
+      <div class="metric-card">
+
+        <span class="metric-icon">
+          🏠
+        </span>
+
+        <div>
+
+          <p>
+            Total Listings
+          </p>
+
+          <h2>
+            13,320
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div class="metric-card">
+
+        <span class="metric-icon">
+          💰
+        </span>
+
+        <div>
+
+          <p>
+            Average Price
+          </p>
+
+          <h2>
+            ₹ --
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div class="metric-card">
+
+        <span class="metric-icon">
+          📐
+        </span>
+
+        <div>
+
+          <p>
+            Average Size
+          </p>
+
+          <h2>
+            -- sqft
+          </h2>
+
+        </div>
+
+      </div>
+
+
+      <div class="metric-card">
+
+        <span class="metric-icon">
+          📍
+        </span>
+
+        <div>
+
+          <p>
+            Locations
+          </p>
+
+          <h2>
+            --
+          </h2>
+
+        </div>
+
+      </div>
+
+
+    </section>
+
+
+    <!-- ================================================= -->
+    <!-- NAVIGATION -->
+    <!-- ================================================= -->
+
+    <nav class="navigation">
+
+
+      <button class="nav-btn active" onclick="showSection('estimator', this)">
+
+        🔮 Price Estimator
+
+      </button>
+
+
+      <button class="nav-btn" onclick="showSection('analytics', this)">
+
+        📈 Market Analytics
+
+      </button>
+
+
+      <button class="nav-btn" onclick="showSection('history', this)">
+
+        📜 Search History
+
+      </button>
+
+
+    </nav>
+
+
+    <!-- ================================================= -->
+    <!-- ESTIMATOR -->
+    <!-- ================================================= -->
+
+    <section id="estimator" class="page-section active">
+
+
+      <div class="section-title">
+
+        <h2>
+          Property Price Estimator
+        </h2>
+
+        <p>
+          Enter property details to estimate
+          its market value.
+        </p>
+
+      </div>
+
+
+      <div class="estimator-grid">
+
+
+        <!-- INPUT -->
+
+        <div class="card">
+
+          <h3>
+            📝 Property Details
+          </h3>
+
+
+          <form id="predictionForm" onsubmit="submitPrediction(event)">
+
+
+            <div class="form-group">
+
+              <label>
+                📍 Location
+              </label>
+
+
+              <select id="location" required>
+
+                <option value="">
+                  Select Location
+                </option>
+
+                {{LOCATION_OPTIONS}}
+
+              </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+              <label>
+                📐 Built-up Area (Sq. Ft.)
+              </label>
+
+
+              <input type="number" id="total_sqft" min="100" max="10000" value="1200" required>
+
+            </div>
+
+
+            <div class="form-row">
+
+
+              <div class="form-group">
+
+                <label>
+                  🛏️ BHK
+                </label>
+
+                <input type="number" id="bhk" min="1" max="10" value="2" required>
+
+              </div>
+
+
+              <div class="form-group">
+
+                <label>
+                  🚿 Bathrooms
+                </label>
+
+                <input type="number" id="bath" min="1" max="10" value="2" required>
+
+              </div>
+
+
+            </div>
+
+
+            <div class="form-group">
+
+              <label>
+                💰 Asking Price (₹ Lakhs)
+              </label>
+
+              <input type="number" id="asking_price" min="1" value="65" required>
+
+            </div>
+
+
+            <button type="submit" class="predict-btn">
+
+              🔥 Calculate Market Value
+
+            </button>
+
+
+          </form>
+
+        </div>
+
+
+        <!-- RESULT -->
+
+        <div class="card result-card">
+
+
+          <div class="result-header">
+
+            <span>
+              📊
+            </span>
+
+            <div>
+
+              <h3>
+                Valuation Verdict
+              </h3>
+
+              <p>
+                AI-powered property assessment
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div id="resultPlaceholder" class="result-placeholder">
+
+            <div class="placeholder-icon">
+              🏠
+            </div>
+
+            <h3>
+              Ready to Analyze
+            </h3>
+
+            <p>
+              Enter your property details and
+              calculate market value.
+            </p>
+
+          </div>
+
+
+          <div id="predictionResult" class="prediction-result hidden">
+
+
+            <div id="ratingBadge" class="rating-badge">
+
+              Fair Market Price
+
+            </div>
+
+
+            <div class="main-price">
+
+              <span>
+                Estimated Market Value
+              </span>
+
+              <h1 id="predictedPrice">
+                ₹ 0.00 L
+              </h1>
+
+            </div>
+
+
+            <div class="result-grid">
+
+
+              <div class="result-box">
+
+                <span>
+                  Asking Price
+                </span>
+
+                <strong id="resultAskingPrice">
+                  ₹ 0.00 L
+                </strong>
+
+              </div>
+
+
+              <div class="result-box">
+
+                <span>
+                  Price Variance
+                </span>
+
+                <strong id="priceVariance">
+                  0.00%
+                </strong>
+
+              </div>
+
+
+            </div>
+
+
+            <div class="recommendation">
+
+              <span>
+                💡
+              </span>
+
+              <p id="recommendationText">
+                Property assessment will appear here.
+              </p>
+
+            </div>
+
+
+          </div>
+
+
+        </div>
+
+
+      </div>
+
+
+    </section>
+
+
+    <!-- ================================================= -->
+    <!-- ANALYTICS -->
+    <!-- ================================================= -->
+
+    <section id="analytics" class="page-section">
+
+
+      <div class="section-title">
+
+        <h2>
+          📈 Market Analytics
+        </h2>
+
+        <p>
+          Explore Bengaluru property market trends.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          📊 Interactive Analytics
+        </h3>
+
+        <p>
+          The complete interactive charts are
+          displayed below this frontend by Streamlit.
+        </p>
+
+      </div>
+
+
+    </section>
+
+
+    <!-- ================================================= -->
+    <!-- HISTORY -->
+    <!-- ================================================= -->
+
+    <section id="history" class="page-section">
+
+
+      <div class="section-title">
+
+        <h2>
+          📜 Prediction History
+        </h2>
+
+        <p>
+          Your previous predictions are stored
+          automatically.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <p>
+          Prediction history is displayed below
+          by Streamlit.
+        </p>
+
+      </div>
+
+
+    </section>
+
+
+  </main>
+
+
+  <footer>
+
+    <p>
+      Bengaluru Real Estate AI
+    </p>
+
+    <span>
+      Powered by Python • Streamlit •
+      Random Forest
+    </span>
+
+  </footer>
+
+
+</body>
+
+</html>

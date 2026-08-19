@@ -1,352 +1,1118 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 import mysql.connector
+from pathlib import Path
 import plotly.express as px
-import plotly.graph_objects as go
+
 
 # =========================================================
 # PAGE CONFIGURATION
 # =========================================================
+
 st.set_page_config(
-    page_title="Bengaluru Real Estate AI Valuation",
+    page_title="Bengaluru Real Estate AI",
     page_icon="🏢",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom Styling (Glassmorphism & Modern Dashboard Theme)
-st.markdown("""
-<style>
-    /* Dark Theme Accent Header */
-    .hero-banner {
-        background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #3B82F6 100%);
-        padding: 2.5rem 2rem;
-        border-radius: 16px;
-        color: #FFFFFF;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    }
-    .hero-banner h1 {
-        font-size: 2.2rem;
-        font-weight: 800;
-        letter-spacing: -0.025em;
-        margin: 0;
-        color: #FFFFFF !important;
-    }
-    .hero-banner p {
-        color: #94A3B8;
-        font-size: 1.05rem;
-        margin-top: 0.5rem;
-        margin-bottom: 0;
-    }
-    
-    /* Input Container Box */
-    .input-card {
-        background-color: #1E293B;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
 
-    /* Status Badges */
-    .status-pill {
-        display: inline-block;
-        padding: 0.6rem 1.2rem;
-        border-radius: 50px;
-        font-weight: 700;
-        font-size: 0.95rem;
-        text-align: center;
-    }
-    .pill-green { background-color: #064E3B; color: #34D399; border: 1px solid #059669; }
-    .pill-yellow { background-color: #78350F; color: #FBBF24; border: 1px solid #D97706; }
-    .pill-red { background-color: #7F1D1D; color: #FCA5A5; border: 1px solid #DC2626; }
-</style>
-""", unsafe_allow_html=True)
+# =========================================================
+# PROJECT PATHS
+# =========================================================
+
+BASE_DIR = Path(__file__).parent
+
+MODEL_PATH = BASE_DIR / "bengaluru_house_price_model.pkl"
+DATA_PATH = BASE_DIR / "Bengaluru_House_Data.csv"
+CSS_PATH = BASE_DIR / "frontend" / "style.css"
 
 
 # =========================================================
-# DATA & MODEL LOADERS
+# LOAD CSS
 # =========================================================
-@st.cache_resource
-def load_model():
-    try:
-        return joblib.load("bengaluru_house_price_model.pkl")
-    except Exception as e:
-        return None
 
-@st.cache_data
-def load_dataset():
-    try:
-        df = pd.read_csv("Bengaluru_House_Data.csv")
-        df["price"] = pd.to_numeric(df["price"], errors="coerce")
-        df["total_sqft_numeric"] = pd.to_numeric(
-            df["total_sqft"].astype(str).str.extract(r"(\d+\.?\d*)")[0], 
-            errors="coerce"
-        )
-        df["bhk_numeric"] = pd.to_numeric(
-            df["size"].astype(str).str.extract(r"(\d+)")[0], 
-            errors="coerce"
-        )
-        return df
-    except Exception as e:
-        return pd.DataFrame()
+if CSS_PATH.exists():
 
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="1234",
-        database="bengaluru_house_db"
+    css = CSS_PATH.read_text(
+        encoding="utf-8"
     )
 
-model = load_model()
-df = load_dataset()
+    st.markdown(
+        "<style>" + css + "</style>",
+        unsafe_allow_html=True
+    )
+
+else:
+
+    st.error(
+        "❌ frontend/style.css was not found."
+    )
+
+    st.stop()
 
 
 # =========================================================
-# HEADER BANNER
+# CHECK MODEL
 # =========================================================
-st.markdown("""
-<div class="hero-banner">
-    <h1>🏢 Bengaluru Real Estate Valuation Intelligence</h1>
-    <p>Predict property valuation using machine learning models and analyze live market performance indicators.</p>
-</div>
-""", unsafe_allow_html=True)
 
+if not MODEL_PATH.exists():
 
-# =========================================================
-# TOP METRICS BANNER
-# =========================================================
-if not df.empty:
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.metric("Total Listings", f"{len(df):,}")
-    with m2:
-        st.metric("Avg Listing Price", f"₹ {df['price'].mean():.2f} L")
-    with m3:
-        st.metric("Avg Property Size", f"{df['total_sqft_numeric'].mean():.0f} sqft")
-    with m4:
-        st.metric("Active Locations", f"{df['location'].nunique():,}")
+    st.error(
+        "❌ bengaluru_house_price_model.pkl was not found."
+    )
 
-st.divider()
+    st.stop()
+
 
 # =========================================================
-# NAVIGATION TABS
+# CHECK DATASET
 # =========================================================
-tab_estimator, tab_analytics, tab_history = st.tabs([
-    "🔮 Price Estimator", 
-    "📈 Market Analytics", 
-    "📜 Search Logs"
-])
 
-# ---------------------------------------------------------
-# TAB 1: PREDICTION ENGINE
-# ---------------------------------------------------------
-with tab_estimator:
-    col_input, col_output = st.columns([1, 1], gap="large")
-    
-    with col_input:
-        st.markdown("### 📝 Enter Property Details")
-        
-        with st.form("val_form"):
-            if not df.empty and "location" in df.columns:
-                loc_list = sorted(df["location"].dropna().unique().tolist())
-                location = st.selectbox("📍 Location", options=loc_list)
-            else:
-                location = st.text_input("📍 Location", placeholder="e.g. Whitefield")
+if not DATA_PATH.exists():
 
-            total_sqft = st.number_input(
-                "📐 Built-up Area (Sq. Ft.)",
-                min_value=100.0,
-                max_value=10000.0,
-                value=1200.0,
-                step=50.0
+    st.error(
+        "❌ Bengaluru_House_Data.csv was not found."
+    )
+
+    st.stop()
+
+
+# =========================================================
+# LOAD MODEL
+# =========================================================
+
+@st.cache_resource
+def load_model():
+
+    return joblib.load(MODEL_PATH)
+
+
+try:
+
+    model = load_model()
+
+except Exception as error:
+
+    st.error(
+        "❌ Error loading the machine learning model."
+    )
+
+    st.exception(error)
+
+    st.stop()
+
+
+# =========================================================
+# LOAD DATASET
+# =========================================================
+
+@st.cache_data
+def load_data():
+
+    return pd.read_csv(DATA_PATH)
+
+
+try:
+
+    df = load_data()
+
+except Exception as error:
+
+    st.error(
+        "❌ Error loading Bengaluru_House_Data.csv."
+    )
+
+    st.exception(error)
+
+    st.stop()
+
+
+# =========================================================
+# CLEAN DATA
+# =========================================================
+
+if "location" not in df.columns:
+
+    st.error(
+        "❌ Location column not found in dataset."
+    )
+
+    st.stop()
+
+
+df["location"] = (
+    df["location"]
+    .astype(str)
+    .str.strip()
+)
+
+
+# =========================================================
+# PRICE
+# =========================================================
+
+if "price" in df.columns:
+
+    df["price"] = pd.to_numeric(
+        df["price"],
+        errors="coerce"
+    )
+
+
+# =========================================================
+# AREA CONVERSION
+# =========================================================
+
+def convert_sqft(value):
+
+    try:
+
+        value = str(value).strip()
+
+        if "-" in value:
+
+            parts = value.split("-")
+
+            first = float(
+                parts[0].strip()
             )
 
-            c1, c2 = st.columns(2)
-            with c1:
-                bhk = st.number_input("🛏️ BHK", min_value=1, max_value=10, value=2)
-            with c2:
-                bath = st.number_input("🚿 Bathrooms", min_value=1, max_value=10, value=2)
-
-            asking_price = st.number_input(
-                "💰 Asking Price (₹ in Lakhs)",
-                min_value=1.0,
-                value=65.0,
-                step=1.0
+            second = float(
+                parts[1].strip()
             )
 
-            submit_btn = st.form_submit_button("🔥 Calculate Market Value", use_container_width=True)
+            return (first + second) / 2
 
-    with col_output:
-        st.markdown("### 📊 Valuation Verdict")
-        
-        if submit_btn:
-            if not location or location.strip() == "":
-                st.warning("Please enter or select a valid location.")
-            elif model is None:
-                st.error("Model file `bengaluru_house_price_model.pkl` could not be loaded.")
-            else:
-                input_df = pd.DataFrame({
-                    "location": [location],
-                    "total_sqft": [total_sqft],
-                    "bhk": [bhk],
-                    "bath": [bath]
-                })
+        return float(value)
 
-                try:
-                    predicted_val = float(model.predict(input_df)[0])
-                except Exception as ex:
-                    st.error(f"Prediction failed: {ex}")
-                    st.stop()
+    except Exception:
 
-                diff = ((asking_price - predicted_val) / predicted_val) * 100 if predicted_val > 0 else 0
+        return np.nan
 
-                if diff <= -10:
-                    badge = '<div class="status-pill pill-green">🟢 Undervalued Opportunity</div>'
-                    rating_str = "Undervalued"
-                elif diff <= 10:
-                    badge = '<div class="status-pill pill-yellow">🟡 Fair Market Price</div>'
-                    rating_str = "Fair Value"
-                else:
-                    badge = '<div class="status-pill pill-red">🔴 Overpriced Listing</div>'
-                    rating_str = "Overpriced"
 
-                # Metric comparisons
-                res1, res2 = st.columns(2)
-                with res1:
-                    st.metric("Estimated Market Value", f"₹ {predicted_val:.2f} Lakhs")
-                    st.metric("Asking Price", f"₹ {asking_price:.2f} Lakhs")
-                with res2:
-                    st.metric("Price Variance", f"{diff:+.2f}%")
-                    st.markdown("**Assessment:**")
-                    st.markdown(badge, unsafe_allow_html=True)
+if "total_sqft" in df.columns:
 
-                # Database Logging
-                try:
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    insert_query = """
-                        INSERT INTO search_history
-                        (location, total_sqft, bhk, bath, asking_price, predicted_price, investment_rating)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """
-                    cursor.execute(insert_query, (
-                        location, float(total_sqft), int(bhk), int(bath),
-                        float(asking_price), float(predicted_val), rating_str
-                    ))
-                    conn.commit()
+    df["area_numeric"] = (
+        df["total_sqft"]
+        .apply(convert_sqft)
+    )
 
-                    export_cursor = conn.cursor(dictionary=True)
-                    export_cursor.execute("SELECT * FROM search_history ORDER BY searched_at DESC")
-                    records = export_cursor.fetchall()
-                    export_cursor.close()
-                    cursor.close()
-                    conn.close()
+else:
 
-                    pd.DataFrame(records).to_csv("search_history.csv", index=False)
-                    st.toast("Saved prediction record successfully!", icon="✅")
-                except mysql.connector.Error as db_err:
-                    st.error(f"MySQL Error: {db_err}")
+    df["area_numeric"] = np.nan
+
+
+# =========================================================
+# BHK
+# =========================================================
+
+if "size" in df.columns:
+
+    df["bhk"] = pd.to_numeric(
+
+        df["size"]
+        .astype(str)
+        .str.extract(
+            r"(\d+)",
+            expand=False
+        ),
+
+        errors="coerce"
+
+    )
+
+else:
+
+    df["bhk"] = np.nan
+
+
+# =========================================================
+# LOCATIONS
+# =========================================================
+
+locations = sorted(
+    df["location"]
+    .dropna()
+    .unique()
+    .tolist()
+)
+
+
+if len(locations) == 0:
+
+    st.error(
+        "❌ No locations found in dataset."
+    )
+
+    st.stop()
+
+
+# =========================================================
+# MYSQL CONNECTION
+# =========================================================
+
+def get_connection():
+
+    return mysql.connector.connect(
+
+        host="localhost",
+
+        user="root",
+
+        password="1234",
+
+        database="bengaluru_house_db"
+
+    )
+
+
+# =========================================================
+# SAVE PREDICTION TO MYSQL
+# =========================================================
+
+def save_prediction(
+    location,
+    total_sqft,
+    bhk,
+    bath,
+    asking_price,
+    predicted_price,
+    rating
+):
+
+    connection = None
+    cursor = None
+
+    try:
+
+        connection = get_connection()
+
+        cursor = connection.cursor()
+
+        query = """
+        INSERT INTO search_history
+        (
+            location,
+            total_sqft,
+            bhk,
+            bath,
+            asking_price,
+            predicted_price,
+            investment_rating
+        )
+        VALUES
+        (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s
+        )
+        """
+
+        values = (
+            location,
+            float(total_sqft),
+            int(bhk),
+            int(bath),
+            float(asking_price),
+            float(predicted_price),
+            rating
+        )
+
+        cursor.execute(
+            query,
+            values
+        )
+
+        connection.commit()
+
+        return True, ""
+
+    except Exception as error:
+
+        if connection:
+
+            connection.rollback()
+
+        return False, str(error)
+
+    finally:
+
+        if cursor:
+
+            cursor.close()
+
+        if connection:
+
+            connection.close()
+
+
+# =========================================================
+# GET HISTORY
+# =========================================================
+
+def get_history():
+
+    connection = None
+
+    try:
+
+        connection = get_connection()
+
+        query = """
+        SELECT
+            id,
+            location,
+            total_sqft,
+            bhk,
+            bath,
+            asking_price,
+            predicted_price,
+            investment_rating,
+            searched_at
+        FROM search_history
+        ORDER BY searched_at DESC
+        """
+
+        history = pd.read_sql(
+            query,
+            connection
+        )
+
+        return history
+
+    finally:
+
+        if connection:
+
+            connection.close()
+
+
+# =========================================================
+# SIDEBAR
+# =========================================================
+
+st.sidebar.title(
+    "🏢 Real Estate AI"
+)
+
+st.sidebar.write(
+    "Bengaluru Property Valuation"
+)
+
+st.sidebar.divider()
+
+
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "🏠 Price Estimator",
+        "📊 Market Analysis",
+        "📜 Prediction History"
+    ]
+)
+
+
+st.sidebar.divider()
+
+st.sidebar.write(
+    "🤖 Model"
+)
+
+st.sidebar.write(
+    "Random Forest Regression"
+)
+
+
+# =========================================================
+# PRICE ESTIMATOR
+# =========================================================
+
+if page == "🏠 Price Estimator":
+
+    st.title(
+        "🏢 Bengaluru Real Estate AI"
+    )
+
+    st.write(
+        "Intelligent property valuation "
+        "powered by Machine Learning."
+    )
+
+    st.divider()
+
+
+    # -----------------------------------------------------
+    # METRICS
+    # -----------------------------------------------------
+
+    col1, col2, col3, col4 = st.columns(4)
+
+
+    with col1:
+
+        st.metric(
+            "🏠 Total Listings",
+            f"{len(df):,}"
+        )
+
+
+    with col2:
+
+        if "price" in df.columns:
+
+            avg_price = (
+                df["price"]
+                .dropna()
+                .mean()
+            )
 
         else:
-            st.info("👈 Fill out the details on the left and click **Calculate Market Value** to render the AI analysis.")
 
+            avg_price = 0
 
-# ---------------------------------------------------------
-# TAB 2: INTERACTIVE DASHBOARD (PLOTLY)
-# ---------------------------------------------------------
-with tab_analytics:
-    if not df.empty:
-        g1, g2 = st.columns(2)
-
-        with g1:
-            st.markdown("##### 📍 Top 10 High-Value Locations")
-            top_locs = (
-                df.dropna(subset=["location", "price"])
-                .groupby("location")["price"]
-                .mean()
-                .nlargest(10)
-                .reset_index()
-            )
-            fig_loc = px.bar(
-                top_locs, 
-                x="price", 
-                y="location", 
-                orientation="h",
-                labels={"price": "Avg Price (Lakhs)", "location": "Location"},
-                color="price",
-                color_continuous_scale="Viridis"
-            )
-            fig_loc.update_layout(yaxis={'categoryorder': 'total ascending'}, margin=dict(l=0, r=0, t=30, b=0))
-            st.plotly_chart(fig_loc, use_container_width=True)
-
-        with g2:
-            st.markdown("##### 🛏️ Price Distribution by BHK")
-            bhk_df = df.dropna(subset=["bhk_numeric", "price"])
-            bhk_df = bhk_df[bhk_df["bhk_numeric"] <= 6]
-            fig_bhk = px.box(
-                bhk_df, 
-                x="bhk_numeric", 
-                y="price",
-                labels={"bhk_numeric": "BHK Count", "price": "Price (Lakhs)"},
-                color="bhk_numeric"
-            )
-            fig_bhk.update_layout(showlegend=False, margin=dict(l=0, r=0, t=30, b=0))
-            st.plotly_chart(fig_bhk, use_container_width=True)
-
-        st.markdown("##### 📐 Area (Sqft) vs Price Correlation")
-        sqft_filtered = df[(df["total_sqft_numeric"] < 5000) & (df["price"] < 500)].dropna(subset=["total_sqft_numeric", "price"])
-        fig_scatter = px.scatter(
-            sqft_filtered, 
-            x="total_sqft_numeric", 
-            y="price", 
-            color="bhk_numeric",
-            hover_data=["location"],
-            labels={"total_sqft_numeric": "Total Square Feet", "price": "Price (Lakhs)", "bhk_numeric": "BHK"},
-            opacity=0.7
+        st.metric(
+            "💰 Average Price",
+            f"₹ {avg_price:.2f} L"
         )
-        fig_scatter.update_layout(margin=dict(l=0, r=0, t=30, b=0))
-        st.plotly_chart(fig_scatter, use_container_width=True)
+
+
+    with col3:
+
+        st.metric(
+            "📍 Locations",
+            f"{len(locations):,}"
+        )
+
+
+    with col4:
+
+        st.metric(
+            "🤖 Model",
+            "Random Forest Regression"
+        )
+
+
+    st.divider()
+
+
+    # -----------------------------------------------------
+    # INPUTS
+    # -----------------------------------------------------
+
+    st.subheader(
+        "🔮 Property Price Estimator"
+    )
+
+
+    col1, col2 = st.columns(2)
+
+
+    with col1:
+
+        location = st.selectbox(
+            "📍 Location",
+            locations
+        )
+
+        total_sqft = st.number_input(
+            "📐 Built-up Area (Sq. Ft.)",
+            min_value=100.0,
+            max_value=10000.0,
+            value=1200.0,
+            step=50.0
+        )
+
+
+    with col2:
+
+        bhk = st.number_input(
+            "🛏️ BHK",
+            min_value=1,
+            max_value=10,
+            value=2,
+            step=1
+        )
+
+        bath = st.number_input(
+            "🚿 Bathrooms",
+            min_value=1,
+            max_value=10,
+            value=2,
+            step=1
+        )
+
+
+    asking_price = st.number_input(
+        "💰 Asking Price (₹ Lakhs)",
+        min_value=1.0,
+        max_value=1000.0,
+        value=65.0,
+        step=1.0
+    )
+
+
+    st.write("")
+
+
+    calculate = st.button(
+        "🔥 Calculate Market Value",
+        type="primary",
+        use_container_width=True
+    )
+
+
+    # =====================================================
+    # PREDICTION
+    # =====================================================
+
+    if calculate:
+
+        try:
+
+            input_data = pd.DataFrame({
+
+                "location": [location],
+
+                "total_sqft": [total_sqft],
+
+                "bhk": [bhk],
+
+                "bath": [bath]
+
+            })
+
+
+            predicted_price = float(
+                model.predict(
+                    input_data
+                )[0]
+            )
+
+
+            if not np.isfinite(
+                predicted_price
+            ):
+
+                raise ValueError(
+                    "Invalid model prediction."
+                )
+
+
+            # ---------------------------------------------
+            # VARIANCE
+            # ---------------------------------------------
+
+            variance = (
+
+                (
+                    asking_price
+                    - predicted_price
+                )
+                / predicted_price
+            ) * 100
+
+
+            # ---------------------------------------------
+            # RATING
+            # ---------------------------------------------
+
+            if variance <= -10:
+
+                rating = "Undervalued"
+
+                message = (
+                    "The property is priced below "
+                    "the estimated market value."
+                )
+
+
+            elif variance >= 10:
+
+                rating = "Overpriced"
+
+                message = (
+                    "The asking price is higher "
+                    "than the estimated market value."
+                )
+
+
+            else:
+
+                rating = "Fair Market Price"
+
+                message = (
+                    "The asking price is close to "
+                    "the estimated market value."
+                )
+
+
+            st.divider()
+
+            st.subheader(
+                "📊 Valuation Result"
+            )
+
+
+            r1, r2, r3 = st.columns(3)
+
+
+            with r1:
+
+                st.metric(
+                    "🤖 Estimated Market Value",
+                    f"₹ {predicted_price:.2f} L"
+                )
+
+
+            with r2:
+
+                st.metric(
+                    "💰 Asking Price",
+                    f"₹ {asking_price:.2f} L"
+                )
+
+
+            with r3:
+
+                st.metric(
+                    "📈 Price Difference",
+                    f"{variance:+.2f}%"
+                )
+
+
+            if rating == "Undervalued":
+
+                st.success(
+                    f"🟢 {rating} — {message}"
+                )
+
+            elif rating == "Overpriced":
+
+                st.error(
+                    f"🔴 {rating} — {message}"
+                )
+
+            else:
+
+                st.warning(
+                    f"🟡 {rating} — {message}"
+                )
+
+
+            # ---------------------------------------------
+            # SAVE TO MYSQL
+            # ---------------------------------------------
+
+            saved, error_message = save_prediction(
+
+                location,
+                total_sqft,
+                bhk,
+                bath,
+                asking_price,
+                predicted_price,
+                rating
+
+            )
+
+
+            if saved:
+
+                st.success(
+                    "✅ Prediction saved to MySQL search history."
+                )
+
+            else:
+
+                st.error(
+                    "Prediction calculated, "
+                    "but MySQL storage failed."
+                )
+
+                st.code(error_message)
+
+
+        except Exception as error:
+
+            st.error(
+                "❌ Market value calculation failed."
+            )
+
+            st.exception(error)
+
+
+# =========================================================
+# MARKET ANALYSIS
+# =========================================================
+
+elif page == "📊 Market Analysis":
+
+    st.title(
+        "📊 Bengaluru Market Analysis"
+    )
+
+    st.write(
+        "Explore property prices, BHK trends "
+        "and area-price relationships."
+    )
+
+    st.divider()
+
+
+    # -----------------------------------------------------
+    # FILTER
+    # -----------------------------------------------------
+
+    selected_location = st.selectbox(
+        "📍 Location Filter",
+        ["All Locations"] + locations
+    )
+
+
+    if selected_location == "All Locations":
+
+        analysis_df = df.copy()
+
     else:
-        st.warning("Dataset not available for generating dashboard charts.")
+
+        analysis_df = df[
+            df["location"] == selected_location
+        ].copy()
 
 
-# ---------------------------------------------------------
-# TAB 3: SEARCH HISTORY & DATABASE RECORDS
-# ---------------------------------------------------------
-with tab_history:
-    st.markdown("### 📜 Prediction Log")
+    # -----------------------------------------------------
+    # METRICS
+    # -----------------------------------------------------
+
+    c1, c2, c3, c4 = st.columns(4)
+
+
+    with c1:
+
+        st.metric(
+            "🏠 Properties",
+            f"{len(analysis_df):,}"
+        )
+
+
+    with c2:
+
+        average = (
+            analysis_df["price"]
+            .dropna()
+            .mean()
+        )
+
+        st.metric(
+            "💰 Average Price",
+            f"₹ {average:.2f} L"
+        )
+
+
+    with c3:
+
+        average_area = (
+            analysis_df["area_numeric"]
+            .dropna()
+            .mean()
+        )
+
+        st.metric(
+            "📐 Average Area",
+            f"{average_area:.0f} sqft"
+        )
+
+
+    with c4:
+
+        highest = (
+            analysis_df["price"]
+            .dropna()
+            .max()
+        )
+
+        st.metric(
+            "💎 Highest Price",
+            f"₹ {highest:.2f} L"
+        )
+
+
+    st.divider()
+
+
+    # =====================================================
+    # LOCATION CHART
+    # =====================================================
+
+    st.subheader(
+        "📍 Top 10 Locations by Average Price"
+    )
+
+
+    location_chart = (
+
+        df
+        .dropna(
+            subset=["location", "price"]
+        )
+        .groupby("location")["price"]
+        .mean()
+        .sort_values(
+            ascending=False
+        )
+        .head(10)
+        .reset_index()
+
+    )
+
+
+    if not location_chart.empty:
+
+        fig1 = px.bar(
+
+            location_chart,
+
+            x="price",
+
+            y="location",
+
+            orientation="h",
+
+            title="Average Price by Location",
+
+            labels={
+                "price": "Average Price (₹ Lakhs)",
+                "location": "Location"
+            }
+
+        )
+
+        fig1.update_layout(
+            yaxis={
+                "categoryorder":
+                "total ascending"
+            }
+        )
+
+        st.plotly_chart(
+            fig1,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info(
+            "No location data available."
+        )
+
+
+    # =====================================================
+    # BHK CHART
+    # =====================================================
+
+    st.subheader(
+        "🛏️ Average Price by BHK"
+    )
+
+
+    bhk_chart = (
+
+        analysis_df
+        .dropna(
+            subset=["bhk", "price"]
+        )
+        .groupby("bhk")["price"]
+        .mean()
+        .reset_index()
+        .sort_values("bhk")
+
+    )
+
+
+    if not bhk_chart.empty:
+
+        fig2 = px.bar(
+
+            bhk_chart,
+
+            x="bhk",
+
+            y="price",
+
+            title="Average Price by BHK",
+
+            labels={
+                "bhk": "BHK",
+                "price": "Average Price (₹ Lakhs)"
+            }
+
+        )
+
+        st.plotly_chart(
+            fig2,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info(
+            "No BHK data available."
+        )
+
+
+    # =====================================================
+    # AREA VS PRICE
+    # =====================================================
+
+    st.subheader(
+        "📐 Area vs Price"
+    )
+
+
+    scatter_df = (
+
+        analysis_df[
+            [
+                "area_numeric",
+                "price",
+                "bhk"
+            ]
+        ]
+        .dropna()
+        .head(3000)
+
+    )
+
+
+    if not scatter_df.empty:
+
+        fig3 = px.scatter(
+
+            scatter_df,
+
+            x="area_numeric",
+
+            y="price",
+
+            color="bhk",
+
+            title="Built-up Area vs Price",
+
+            labels={
+                "area_numeric":
+                    "Built-up Area (Sq. Ft.)",
+
+                "price":
+                    "Price (₹ Lakhs)",
+
+                "bhk":
+                    "BHK"
+            }
+
+        )
+
+        st.plotly_chart(
+            fig3,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info(
+            "No area-price data available."
+        )
+
+
+# =========================================================
+# PREDICTION HISTORY
+# =========================================================
+
+elif page == "📜 Prediction History":
+
+    st.title(
+        "📜 Prediction History"
+    )
+
+    st.write(
+        "Predictions saved in MySQL."
+    )
+
+    st.divider()
+
+
     try:
-        conn = get_connection()
-        hist_df = pd.read_sql("SELECT * FROM search_history ORDER BY searched_at DESC LIMIT 100", conn)
-        conn.close()
-        
-        if not hist_df.empty:
+
+        history = get_history()
+
+
+        st.metric(
+            "🔢 Total Predictions",
+            f"{len(history):,}"
+        )
+
+
+        st.write("")
+
+
+        if history.empty:
+
+            st.info(
+                "No prediction history available."
+            )
+
+        else:
+
             st.dataframe(
-                hist_df,
-                column_config={
-                    "id": "ID",
-                    "location": "Location",
-                    "total_sqft": "Area (Sqft)",
-                    "bhk": "BHK",
-                    "bath": "Bathrooms",
-                    "asking_price": st.column_config.NumberColumn("Asking Price", format="₹ %.2f L"),
-                    "predicted_price": st.column_config.NumberColumn("Predicted Value", format="₹ %.2f L"),
-                    "investment_rating": "Rating",
-                    "searched_at": "Timestamp"
-                },
+                history,
                 use_container_width=True,
                 hide_index=True
             )
-        else:
-            st.info("No query logs stored yet.")
-    except Exception as e:
-        st.warning("Database unavailable. Showing local CSV export if available.")
-        try:
-            csv_df = pd.read_csv("search_history.csv")
-            st.dataframe(csv_df, use_container_width=True)
-        except Exception:
-            st.error("No historical log records found.")
+
+
+            st.download_button(
+
+                "⬇️ Download History",
+
+                history.to_csv(
+                    index=False
+                ),
+
+                "prediction_history.csv",
+
+                "text/csv"
+
+            )
+
+
+    except Exception as error:
+
+        st.error(
+            "❌ Could not connect to MySQL."
+        )
+
+        st.code(
+            str(error)
+        )
+
+
+# =========================================================
+# FOOTER
+# =========================================================
+
+st.markdown(
+    """
+    <div class="footer">
+        Bengaluru Real Estate AI
+        <br>
+        Machine Learning Property Valuation •
+        Streamlit • MySQL
+    </div>
+    """,
+    unsafe_allow_html=True
+)
