@@ -1,1 +1,5 @@
-bengaluru_house_price_model.pkl
+venv/
+__pycache__/
+*.pyc
+.env
+backend/model/*.pkl

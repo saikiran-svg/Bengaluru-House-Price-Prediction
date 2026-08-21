@@ -167,10 +167,18 @@ Git LFS
 📁 Project Structure
 Bengaluru_House_Project/
 │
-├── app.py
-├── Bengaluru_House_Data.csv
-├── search_history.csv
-├── bengaluru_house_price_model.pkl
+├── backend/
+│   ├── app.py
+│   ├── model/
+│   │   └── bengaluru_house_price_model.pkl
+│   └── data/
+│       └── Bengaluru_House_Data.csv
+├── frontend/
+│   ├── index.html
+│   ├── script.js
+│   └── style.css
+├── requirements.txt
+├── Procfile
 ├── README.md
 ├── .gitignore
 ├── .gitattributes
@@ -181,9 +189,9 @@ git clone https://github.com/saikiran-svg/Bengaluru-House-Price-Prediction.git
 2. Navigate to the project folder
 cd Bengaluru-House-Price-Prediction
 3. Install required libraries
-pip install pandas numpy matplotlib scikit-learn streamlit joblib
+pip install -r requirements.txt
 4. Run the Streamlit application
-streamlit run app.py
+streamlit run backend/app.py
 
 The application will open in your browser.
 

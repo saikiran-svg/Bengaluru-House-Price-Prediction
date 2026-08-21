@@ -1,3 +1,5 @@
+
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,8 +14,8 @@ import plotly.express as px
 # =========================================================
 
 st.set_page_config(
-    page_title="Bengaluru Real Estate AI",
-    page_icon="🏢",
+    page_title="Smart Real Estate Analytics",
+    page_icon="🏠",
     layout="wide"
 )
 
@@ -23,10 +25,11 @@ st.set_page_config(
 # =========================================================
 
 BASE_DIR = Path(__file__).parent
+PROJECT_ROOT = BASE_DIR.parent
 
-MODEL_PATH = BASE_DIR / "bengaluru_house_price_model.pkl"
-DATA_PATH = BASE_DIR / "Bengaluru_House_Data.csv"
-CSS_PATH = BASE_DIR / "frontend" / "style.css"
+MODEL_PATH = BASE_DIR / "model" / "bengaluru_house_price_model.pkl"
+DATA_PATH = BASE_DIR / "data" / "Bengaluru_House_Data.csv"
+CSS_PATH = PROJECT_ROOT / "frontend" / "style.css"
 
 
 # =========================================================
@@ -35,9 +38,7 @@ CSS_PATH = BASE_DIR / "frontend" / "style.css"
 
 if CSS_PATH.exists():
 
-    css = CSS_PATH.read_text(
-        encoding="utf-8"
-    )
+    css = CSS_PATH.read_text(encoding="utf-8")
 
     st.markdown(
         "<style>" + css + "</style>",
@@ -46,10 +47,7 @@ if CSS_PATH.exists():
 
 else:
 
-    st.error(
-        "❌ frontend/style.css was not found."
-    )
-
+    st.error("❌ frontend/style.css was not found.")
     st.stop()
 
 
@@ -85,7 +83,6 @@ if not DATA_PATH.exists():
 
 @st.cache_resource
 def load_model():
-
     return joblib.load(MODEL_PATH)
 
 
@@ -100,7 +97,6 @@ except Exception as error:
     )
 
     st.exception(error)
-
     st.stop()
 
 
@@ -110,7 +106,6 @@ except Exception as error:
 
 @st.cache_data
 def load_data():
-
     return pd.read_csv(DATA_PATH)
 
 
@@ -125,7 +120,6 @@ except Exception as error:
     )
 
     st.exception(error)
-
     st.stop()
 
 
@@ -175,13 +169,8 @@ def convert_sqft(value):
 
             parts = value.split("-")
 
-            first = float(
-                parts[0].strip()
-            )
-
-            second = float(
-                parts[1].strip()
-            )
+            first = float(parts[0].strip())
+            second = float(parts[1].strip())
 
             return (first + second) / 2
 
@@ -211,16 +200,13 @@ else:
 if "size" in df.columns:
 
     df["bhk"] = pd.to_numeric(
-
         df["size"]
         .astype(str)
         .str.extract(
             r"(\d+)",
             expand=False
         ),
-
         errors="coerce"
-
     )
 
 else:
@@ -256,15 +242,11 @@ if len(locations) == 0:
 def get_connection():
 
     return mysql.connector.connect(
-
-        host="localhost",
-
-        user="root",
-
-        password="1234",
-
-        database="bengaluru_house_db"
-
+        host=os.environ.get("MYSQL_HOST", "localhost"),
+        port=int(os.environ.get("MYSQL_PORT", "3306")),
+        user=os.environ.get("MYSQL_USER", "root"),
+        password=os.environ.get("MYSQL_PASSWORD", ""),
+        database=os.environ.get("MYSQL_DATABASE", "bengaluru_house_db")
     )
 
 
@@ -288,7 +270,6 @@ def save_prediction(
     try:
 
         connection = get_connection()
-
         cursor = connection.cursor()
 
         query = """
@@ -324,11 +305,7 @@ def save_prediction(
             rating
         )
 
-        cursor.execute(
-            query,
-            values
-        )
-
+        cursor.execute(query, values)
         connection.commit()
 
         return True, ""
@@ -336,7 +313,6 @@ def save_prediction(
     except Exception as error:
 
         if connection:
-
             connection.rollback()
 
         return False, str(error)
@@ -344,11 +320,9 @@ def save_prediction(
     finally:
 
         if cursor:
-
             cursor.close()
 
         if connection:
-
             connection.close()
 
 
@@ -389,7 +363,6 @@ def get_history():
     finally:
 
         if connection:
-
             connection.close()
 
 
@@ -398,11 +371,11 @@ def get_history():
 # =========================================================
 
 st.sidebar.title(
-    "🏢 Real Estate AI"
+    "🏠 Smart Real Estate Analytics"
 )
 
 st.sidebar.write(
-    "Bengaluru Property Valuation"
+    "AI-Powered Investment & Price Prediction Engine"
 )
 
 st.sidebar.divider()
@@ -436,12 +409,11 @@ st.sidebar.write(
 if page == "🏠 Price Estimator":
 
     st.title(
-        "🏢 Bengaluru Real Estate AI"
+        "🏠 Smart Real Estate Analytics"
     )
 
     st.write(
-        "Intelligent property valuation "
-        "powered by Machine Learning."
+        "AI-Powered Investment & Price Prediction Engine"
     )
 
     st.divider()
@@ -453,14 +425,12 @@ if page == "🏠 Price Estimator":
 
     col1, col2, col3, col4 = st.columns(4)
 
-
     with col1:
 
         st.metric(
             "🏠 Total Listings",
             f"{len(df):,}"
         )
-
 
     with col2:
 
@@ -481,14 +451,12 @@ if page == "🏠 Price Estimator":
             f"₹ {avg_price:.2f} L"
         )
 
-
     with col3:
 
         st.metric(
             "📍 Locations",
             f"{len(locations):,}"
         )
-
 
     with col4:
 
@@ -589,15 +557,11 @@ if page == "🏠 Price Estimator":
 
 
             predicted_price = float(
-                model.predict(
-                    input_data
-                )[0]
+                model.predict(input_data)[0]
             )
 
 
-            if not np.isfinite(
-                predicted_price
-            ):
+            if not np.isfinite(predicted_price):
 
                 raise ValueError(
                     "Invalid model prediction."
@@ -609,7 +573,6 @@ if page == "🏠 Price Estimator":
             # ---------------------------------------------
 
             variance = (
-
                 (
                     asking_price
                     - predicted_price
@@ -631,7 +594,6 @@ if page == "🏠 Price Estimator":
                     "the estimated market value."
                 )
 
-
             elif variance >= 10:
 
                 rating = "Overpriced"
@@ -640,7 +602,6 @@ if page == "🏠 Price Estimator":
                     "The asking price is higher "
                     "than the estimated market value."
                 )
-
 
             else:
 
@@ -754,7 +715,7 @@ if page == "🏠 Price Estimator":
 elif page == "📊 Market Analysis":
 
     st.title(
-        "📊 Bengaluru Market Analysis"
+        "📊 Smart Real Estate Market Analysis"
     )
 
     st.write(
@@ -1108,10 +1069,10 @@ elif page == "📜 Prediction History":
 st.markdown(
     """
     <div class="footer">
-        Bengaluru Real Estate AI
+        Smart Real Estate Analytics
         <br>
-        Machine Learning Property Valuation •
-        Streamlit • MySQL
+        AI-Powered Investment & Price Prediction Engine •
+        Streamlit • Machine Learning • MySQL
     </div>
     """,
     unsafe_allow_html=True
