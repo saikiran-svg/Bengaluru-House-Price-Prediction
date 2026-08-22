@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .env
 backend/model/*.pkl
+backend/model/*.pkl
